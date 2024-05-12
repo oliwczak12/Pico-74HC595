@@ -13,33 +13,14 @@ license: GNU GENERAL PUBLIC LICENSE Version 3
 #include <math.h>
 #include <stdlib.h>
 
-// Define pin enumeration
-enum shift_register_74hc595_pin_t {
-    QA,
-    QB,
-    QC,
-    QD,
-    QE,
-    QF,
-    QG,
-    QH,
-    QA1,
-    QB1,
-    QC1,
-    QD1,
-    QE1,
-    QF1,
-    QG1,
-    QH1
-};
-typedef enum shift_register_74hc595_pin_t shift_register_74hc595_pin_t;
-
 // Define shift register structure
 struct shift_register_74hc595_t_chain {
     int clk_pin;
     int data_pin;
     int latch_pin;
-    unsigned int pin;
+    unsigned long long pin;
+    unsigned int number_of_shreg;
+    unsigned int numbers_of_pins;
 };
 
 /*! \brief Create a new shift register pointer with given pin numbers
@@ -48,7 +29,7 @@ struct shift_register_74hc595_t_chain {
  * \param d_pin Data pin
  * \param l_pin Latch pin
  */
-static struct shift_register_74hc595_t_chain *new_shreg_74hc595(int c_pin, int d_pin, int l_pin) {
+static struct shift_register_74hc595_t_chain *new_shreg_74hc595(int c_pin, int d_pin, int l_pin, unsigned int number_of_sr) {
     // Allocate memory for new shift register object
     struct shift_register_74hc595_t_chain *shreg_74hc595 = (struct shift_register_74hc595_t_chain *)malloc(sizeof(struct shift_register_74hc595_t_chain));
 
@@ -56,9 +37,10 @@ static struct shift_register_74hc595_t_chain *new_shreg_74hc595(int c_pin, int d
     shreg_74hc595->clk_pin = c_pin;
     shreg_74hc595->data_pin = d_pin;
     shreg_74hc595->latch_pin = l_pin;
-
+    shreg_74hc595->number_of_shreg = number_of_sr;
+    shreg_74hc595->numbers_of_pins = number_of_sr * 8;
     // Set default pins state
-    shreg_74hc595->pin = 0b0000000000000000;
+    shreg_74hc595->pin = 0;
 
     // Return the created shift register
     return shreg_74hc595;
@@ -92,7 +74,7 @@ static void send_data(struct shift_register_74hc595_t_chain *shreg_74hc595, unsi
     unsigned hold;
     // Send data as serail...
     // do zmainy na 8xilość sr
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < shreg_74hc595->numbers_of_pins; i++) {
         gpio_put(shreg_74hc595->data_pin, (data_out >> i) & (0x01));
         clock_signal(shreg_74hc595);
     }
@@ -106,13 +88,13 @@ static void send_data(struct shift_register_74hc595_t_chain *shreg_74hc595, unsi
  * \param pin Pin number (0-7) or (QA-QH)
  * \param value 1 for high, 0 for low
  */
-static void shreg_74hc595_put(struct shift_register_74hc595_t_chain *shreg_74hc595, shift_register_74hc595_pin_t pin, bool value) {
+static void shreg_74hc595_put(struct shift_register_74hc595_t_chain *shreg_74hc595, unsigned long long pin, bool value) {
     if (value) {
         // Use OR operator to set pin high
-        shreg_74hc595->pin |= (unsigned int)pow(2, (15 - pin));
+        shreg_74hc595->pin |= (unsigned long long)pow(2, (shreg_74hc595->numbers_of_pins - 1 - pin));
     } else {
         // Take complement of pin_bin and use AND operator to set pin low
-        shreg_74hc595->pin &= ~(unsigned int)pow(2, (15 - pin));
+        shreg_74hc595->pin &= ~(unsigned long long)pow(2, (shreg_74hc595->numbers_of_pins - 1 - pin));
     }
     // Send pin data to 74HC595
     send_data(shreg_74hc595, shreg_74hc595->pin);
